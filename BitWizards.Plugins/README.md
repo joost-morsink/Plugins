@@ -29,11 +29,16 @@ those of the tool first, then those of the modules, which can replace them. A mo
 
 `mytool plugins list` shows what was found in the plugin folder (turn it off with `PluginHostOptions.PluginsCommand`).
 
+A module that is part of the tool itself is registered like that of a plugin with `services.AddPluginModule<MyBuiltInModule>(configuration)`.
+
+`--config`, `--set` (`-s`) and `install --source` take more than one value (`--set a=1 b=2`, or repeat the option). For that, **put them after the command**:
+before it, `mytool --set a=1 run` takes `run` for a value.
+
 | | |
 |---|---|
 | Plugin folder | `--plugins <folder>`, or `PluginHostOptions.DefaultPluginDirectory`: `mytool-plugins` next to the tool (`PluginDirectories.NextToTool`, which an update of the tool resets) or in the data folder of the user (`PluginDirectories.PerUser`) |
 | Contract | the assemblies that plugins are built against (`PluginHostOptions.Contracts`, this library is there already): a plugin that references another major version is skipped with a warning |
-| Context | `IContext<ParseResult>` and `IContext<Command>` give the services of the container the command line that is being invoked |
+| Context | `IContext<ParseResult>` and `IContext<Command>` give the services of the container the command line that is being invoked. `IContext<T>` is the one of `giki` (`RunWithContext`, `RunWithContextAsync`, `IContext<T>.Create(...)`, `services.AddContext<T>(defaultValue)`), as a singleton that holds the context per async flow, so no scope is needed |
 
 ### Loading
 
@@ -46,8 +51,8 @@ and only those.
 `mytool install --package <id> [--version <v>|latest] [--source <feed>...]` installs a NuGet package into the plugin folder, where the next run of the tool loads it.
 Turn it off with `PluginHostOptions.InstallCommand`; `PluginInstaller`, `NuGetFeeds` and `HostAssemblies` (namespace `BitWizards.Plugins.Installation`) are there for a tool that does it itself.
 
-- **Walks the dependency graph.** Each package is downloaded from the first feed that has it, and its managed assemblies for the target framework are copied
-  (`net10.0`, or the nearest older one). A dependency resolves to the lowest version that satisfies its range, as NuGet restore does. Native assets are reported, not installed.
+- **Walks the dependency graph.** Each package is downloaded from the first feed that has it, and its managed assemblies for the framework of the tool are copied
+  (the `TargetFramework` of `PluginHostOptions.ToolAssembly`, such as `net10.0`, or the nearest older one in the package). A dependency resolves to the lowest version that satisfies its range, as NuGet restore does. Native assets are reported, not installed.
 - **Queries all the sources of NuGet.** Feeds come from the `nuget.config` files (the working directory upwards, then the user and the machine), with their credentials,
   `<clear />`, disabled sources and *package source mapping*; `--source` (a name from the configuration, a URL or a folder) or `--configfile` replace them. The list of versions is never cached.
 - **Does not install what the tool has.** `HostAssemblies` knows the framework, the assemblies next to the tool and (from its `deps.json`) the packages of the tool; those are skipped,

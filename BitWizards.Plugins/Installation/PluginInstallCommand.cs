@@ -15,7 +15,8 @@ internal sealed class PluginInstallCommandConfigurator(PluginCatalog catalog, Pl
         var version = new Option<string?>("--version", "-v") { Description = "The version of the package, or latest (default)" };
         var source = new Option<string[]>("--source")
         {
-            Description = "NuGet package source (a name from nuget.config, a URL or a folder); overrides the configured sources. Repeat it for more."
+            Description = "NuGet package source (a name from nuget.config, a URL or a folder); overrides the configured sources. Give more than one, or repeat it.",
+            AllowMultipleArgumentsPerToken = true
         };
         var configFile = new Option<string?>("--configfile") { Description = "The NuGet config file to use instead of the nuget.config lookup" };
         var clean = new Option<bool>("--clean") { Description = "Empty the plugin folder before installing", Arity = ArgumentArity.Zero };
@@ -54,7 +55,7 @@ internal sealed class PluginInstallCommandConfigurator(PluginCatalog catalog, Pl
                     await error.WriteLineAsync("The tool is a prerelease; prerelease packages are allowed.");
 
                 var success = await PluginInstaller.InstallAsync(id, wanted, catalog.Directory, feeds, host, error,
-                    allowPrerelease: toolIsPrerelease || parse.GetValue(prerelease));
+                    PluginInstaller.FrameworkOf(tool), toolIsPrerelease || parse.GetValue(prerelease));
                 await error.WriteLineAsync(success ? "Package installed successfully." : $"Package {id} {wanted} installation failed.");
                 return success ? 0 : 1;
             }

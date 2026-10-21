@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Reflection;
 using AwesomeAssertions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BitWizards.Plugins.Test;
@@ -22,7 +23,11 @@ public class PluginHostTests
         return folder;
     }
 
-    private static PluginHostOptions Options() => new("tool") { DefaultConfigFile = Path.Combine(Path.GetTempPath(), "bitwizards-plugin-tests", "none.json") };
+    private static PluginHostOptions Options() => new("tool")
+    {
+        DefaultConfigFile = Path.Combine(Path.GetTempPath(), "bitwizards-plugin-tests", "none.json"),
+        ToolAssembly = typeof(PluginHostTests).Assembly
+    };
 
     /// <summary>Starts a tool with the plugin folder, and runs a command line on it.</summary>
     private static async Task<(int Code, string Output, PluginHost Host)> Run(string folder, PluginHostOptions options, params string[] args)
@@ -73,8 +78,9 @@ public class PluginHostTests
         var file = Path.Combine(folder, "config.json");
         File.WriteAllText(file, """{ "Hello": { "Greeting": "hi" } }""");
 
-        (await Run(folder, Options(), "--config", file, "hello")).Output.Should().Be("hi from the plugin (hello)\n", "a file, and a value that the module adds");
-        (await Run(folder, Options(), "--config", file, "--set", "Hello:Greeting=hey", "hello")).Output.Should().StartWith("hey from", "--set wins over the files");
+        // the options follow the command: an option takes more than one value, so a command after it would be taken for one
+        (await Run(folder, Options(), "hello", "--config", file)).Output.Should().Be("hi from the plugin (hello)\n", "a file, and a value that the module adds");
+        (await Run(folder, Options(), "hello", "--config", file, "--set", "Hello:Greeting=hey")).Output.Should().StartWith("hey from", "--set wins over the files");
         (await Run(folder, Options(), "hello")).Output.Should().StartWith("hello from", "without configuration there is the default");
     }
 
@@ -211,5 +217,90 @@ public class PluginHostTests
         seen.Should().Be("here");
         holder.HasContext.Should().BeFalse();
         holder.Context.Should().BeNull();
+    }
+
+    [TestMethod]
+    public async Task TheContextHasAllTheWaysToRunWithIt()
+    {
+        var holder = IContext<string>.Create();
+        var seen = new List<string?>();
+
+        holder.RunWithContext("action", () => seen.Add(holder.Context));
+        await holder.RunWithContextAsync("task", async () =>
+        {
+            await Task.Yield();
+            seen.Add(holder.Context);
+        });
+        seen.Add(await holder.RunWithContextAsync("task of a value", async () =>
+        {
+            await Task.Yield();
+            return holder.Context;
+        }));
+        seen.Add(holder.RunWithContext("value", () => holder.Context));
+        holder.RunWithContext("outer", () => holder.RunWithContext("inner", () => seen.Add(holder.Context)));
+
+        seen.Should().Equal("action", "task", "task of a value", "value", "inner");
+        holder.HasContext.Should().BeFalse("it is gone afterwards, also after nesting");
+        IContext.Create("given").Context.Should().Be("given");
+        IContext<string>.Create("given").HasContext.Should().BeTrue();
+    }
+
+    [TestMethod]
+    public async Task ADefaultContextIsThereOutsideARun()
+    {
+        var services = new ServiceCollection().AddContext("default").AddContext<int>();
+        await using var provider = services.BuildServiceProvider();
+        var text = provider.GetRequiredService<IContext<string>>();
+
+        (text.HasContext, text.Context).Should().Be((true, "default"));
+        text.RunWithContext("run", () => text.Context).Should().Be("run");
+        text.Context.Should().Be("default", "back to the default afterwards");
+        provider.GetRequiredService<IContext<string>>().Should().BeSameAs(text);
+        provider.GetRequiredService<IContext<int>>().HasContext.Should().BeTrue("a value type always has a value, as in giki; it is 0 here");
+    }
+
+    [TestMethod]
+    public async Task TwoTasksDoNotSeeEachOthersContext()
+    {
+        var holder = new ContextHolder<string>();
+        var both = await Task.WhenAll(
+            holder.RunWithContextAsync("one", async () => { await Task.Delay(20); return holder.Context; }),
+            holder.RunWithContextAsync("two", async () => { await Task.Delay(5); return holder.Context; }));
+
+        both.Should().Equal("one", "two");
+    }
+
+    private sealed class GreetingModule : PluginModule
+    {
+        public override void RegisterServices(IConfiguration configuration, IServiceCollection services)
+            => services.AddSingleton(new Greeting(configuration["Greeting"] ?? "none"));
+    }
+
+    private sealed record Greeting(string Text);
+
+    [TestMethod]
+    public void AModuleOfTheToolItselfIsRegisteredLikeThatOfAPlugin()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Greeting"] = "hi" }).Build();
+
+        using var provider = new ServiceCollection().AddPluginModule<GreetingModule>(configuration).BuildServiceProvider();
+
+        provider.GetRequiredService<Greeting>().Text.Should().Be("hi");
+    }
+
+    [TestMethod]
+    public void MoreThanOneConfigurationValueOrFileCanFollowAnOption()
+    {
+        var folder = Folder();
+        var (first, second) = (Path.Combine(folder, "one.json"), Path.Combine(folder, "two.json"));
+        File.WriteAllText(first, """{ "File": "one", "Both": "one" }""");
+        File.WriteAllText(second, """{ "Both": "two" }""");
+
+        using var host = PluginHost.Build(["--plugins", folder, "run", "--config", first, second, "--set", "A=1", "B=2", "-s", "C=3", "--set", "D=4"], Options());
+
+        var configuration = host.Configuration;
+        (configuration["File"], configuration["Both"]).Should().Be(("one", "two"), "the files, the later one wins");
+        new[] { "A", "B", "C", "D" }.Select(key => configuration[key]).Should().Equal("1", "2", "3", "4");
     }
 }

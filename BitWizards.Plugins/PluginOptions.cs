@@ -14,16 +14,19 @@ public sealed class PluginOptions
         Recursive = true
     };
 
+    // more than one value after an option, as in `--set a=1 b=2`: put these after the command, or the command is taken for a value
     public Option<string[]> Config { get; } = new("--config", "-c")
     {
-        Description = "JSON configuration file. Repeat it for more.",
-        Recursive = true
+        Description = "JSON configuration file. Give more than one, or repeat it.",
+        Recursive = true,
+        AllowMultipleArgumentsPerToken = true
     };
 
-    public Option<string[]> Set { get; } = new("--set")
+    public Option<string[]> Set { get; } = new("--set", "-s")
     {
-        Description = "A configuration value as key=value. Repeat it for more.",
-        Recursive = true
+        Description = "A configuration value as key=value. Give more than one, or repeat it.",
+        Recursive = true,
+        AllowMultipleArgumentsPerToken = true
     };
 
     public void AddTo(Command command)

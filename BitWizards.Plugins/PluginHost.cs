@@ -83,8 +83,8 @@ public sealed class PluginHost : IDisposable
 
     /// <summary>Invokes the parsed command line, with its <c>ParseResult</c> and <c>Command</c> available as <see cref="IContext{T}"/>.</summary>
     public Task<int> InvokeAsync(ParseResult parse, InvocationConfiguration? configuration = null, CancellationToken cancellationToken = default)
-        => Services.GetRequiredService<IContext<ParseResult>>().RunWithContext(parse, () =>
-            Services.GetRequiredService<IContext<Command>>().RunWithContext(parse.CommandResult.Command, () =>
+        => Services.GetRequiredService<IContext<ParseResult>>().RunWithContextAsync(parse, () =>
+            Services.GetRequiredService<IContext<Command>>().RunWithContextAsync(parse.CommandResult.Command, () =>
                 parse.InvokeAsync(configuration, cancellationToken)));
 
     public void Dispose() => Services.Dispose();

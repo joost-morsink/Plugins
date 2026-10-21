@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Runtime.Versioning;
 using NuGet.Frameworks;
 using NuGet.Packaging;
 using NuGet.Packaging.Core;
@@ -17,6 +19,10 @@ public static class PluginInstaller
     /// and the dependencies of a package that is entirely provided by the host are not walked.
     /// Null disables this pruning.
     /// </param>
+    /// <param name="framework">
+    /// The framework that the plugins run on: the one the tool targets (<see cref="FrameworkOf"/>; the install command passes that of the tool),
+    /// the framework of this library by default. The assemblies of the nearest framework in each package are installed.
+    /// </param>
     /// <param name="allowPrerelease">
     /// Whether prerelease versions are considered when resolving "latest" and dependencies. An explicitly given
     /// prerelease version is always installed, and allows prerelease dependencies for that install.
@@ -28,13 +34,13 @@ public static class PluginInstaller
         NuGetFeeds feeds,
         HostAssemblies? host = null,
         TextWriter? log = null,
-        string targetFramework = "net10.0",
+        NuGetFramework? framework = null,
         bool allowPrerelease = false)
     {
         Directory.CreateDirectory(pluginDirectory);
 
         var explicitVersion = version == "latest" ? null : NuGetVersion.Parse(version);
-        var walk = new Walk(pluginDirectory, feeds, host, log ?? Console.Error, NuGetFramework.ParseFolder(targetFramework),
+        var walk = new Walk(pluginDirectory, feeds, host, log ?? Console.Error, framework ?? FrameworkOf(null),
             allowPrerelease || explicitVersion is { IsPrerelease: true });
 
         var packageVersion = explicitVersion ?? NuGetVersion.Parse(await walk.FindOutLatest(packageId));
@@ -46,6 +52,15 @@ public static class PluginInstaller
                 Environment.NewLine +
                 "Use a plugin version built for this version of the tool, or --include-provided to install it anyway.");
         return success;
+    }
+
+    /// <summary>The framework that an assembly targets (<c>net10.0</c>), which is the one the plugins of that tool run on. Falls back to the framework this library runs on.</summary>
+    public static NuGetFramework FrameworkOf(Assembly? tool)
+    {
+        var name = tool?.GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName
+                   ?? typeof(PluginInstaller).Assembly.GetCustomAttribute<TargetFrameworkAttribute>()?.FrameworkName
+                   ?? ".NETCoreApp,Version=v10.0";
+        return NuGetFramework.ParseFrameworkName(name, DefaultFrameworkNameProvider.Instance);
     }
 
     private sealed class Walk(
