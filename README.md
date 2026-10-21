@@ -18,6 +18,9 @@ dotnet pack BitWizards.Plugins.sln --configuration Release --output dist
 dotnet pack BitWizards.Plugins.sln --configuration Release --output dist --version-suffix preview.1   # 0.1.0-preview.1
 ```
 
+`scripts/Build-Prerelease.ps1` does the last one with a suffix from the date and time (`0.1.0-preview.20261021180000`), after the tests;
+`-Push` also pushes it to GitHub Packages (with a token in `GITHUB_TOKEN`), `-Suffix rc.1` and `-SkipTests` are there as well.
+
 ## Releasing
 
 The version is the `VersionPrefix` in `Directory.Build.props`, for all assemblies and packages.
