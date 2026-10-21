@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.Reflection;
+using System.Runtime.Loader;
 using AwesomeAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -191,6 +192,65 @@ public class PluginHostTests
         new PluginHostOptions("ks").PluginDirectoryOrDefault.Should().Be(PluginDirectories.NextToTool("ks"));
         new PluginHostOptions("ks") { DefaultPluginDirectory = "/x" }.PluginDirectoryOrDefault.Should().Be("/x");
         new PluginHostOptions("ks").ConfigFileOrDefault.Should().Be("ks.json");
+    }
+
+    private const string Foreign = "BitWizards.Plugins.Test.ForeignPlugin";
+
+    /// <summary>What a tool with a module contract of its own does: wraps the modules that its plugins declare, which do not know this library.</summary>
+    private static IEnumerable<IPluginModule> ForeignModules(Assembly assembly)
+        => assembly.GetCustomAttributes().Where(a => a.GetType().Name == "ForeignModuleAttribute")
+            .Select(a => new ForeignAdapter(Activator.CreateInstance((Type)a.GetType().GetProperty("ModuleType")!.GetValue(a)!)!));
+
+    private sealed class ForeignAdapter(object module) : IPluginModule
+    {
+        public void Configure(IConfigurationBuilder configurationBuilder)
+        {
+        }
+
+        public void RegisterServices(IConfiguration configuration, IServiceCollection services)
+            => module.GetType().GetMethod("RegisterServices")!.Invoke(module, [configuration, services]);
+    }
+
+    [TestMethod]
+    public async Task ModulesOfAnotherContractAreFoundThroughModuleDiscovery()
+    {
+        var options = Options();
+        options.ModuleDiscovery.Add(ForeignModules);
+
+        var (_, _, host) = await Run(Folder(Foreign, Hello), options, "hello", "--set", "Foreign:Value=found");
+        using var _ = host;
+
+        host.Catalog.Warnings.Should().BeEmpty();
+        host.Catalog.Plugins.Should().HaveCount(2).And.OnlyContain(p => p.Status == PluginStatus.Loaded && p.Modules.Length == 1);
+        var marker = AssemblyLoadContext.Default.Assemblies.Single(a => a.GetName().Name == Foreign).GetType(Foreign + ".ForeignMarker")!;
+        marker.GetProperty("Value")!.GetValue(host.Services.GetRequiredService(marker)).Should().Be("found");
+    }
+
+    [TestMethod]
+    public async Task WithoutModuleDiscoveryAPluginOfAnotherContractHasNoModule()
+    {
+        var (_, _, host) = await Run(Folder(Foreign), Options(), "plugins", "list");
+        using var _ = host;
+
+        host.Catalog.Plugins.Should().ContainSingle().Which.Status.Should().Be(PluginStatus.NoModule);
+        host.Catalog.Warnings.Should().BeEmpty();
+    }
+
+    [TestMethod]
+    public async Task ModuleDiscoveryThatThrowsFailsThatPluginOnly()
+    {
+        var options = Options();
+        options.ModuleDiscovery.Add(assembly => assembly.GetName().Name == Foreign
+            ? throw new InvalidOperationException("cannot discover")
+            : []);
+
+        var (code, output, host) = await Run(Folder(Foreign, Hello), options, "hello");
+        using var _ = host;
+
+        (code, output).Should().Be((0, "hello from the plugin (hello)\n"), "the other plugin is still loaded");
+        host.Catalog.Plugins.Should().Contain(p => p.AssemblyName == Foreign && p.Status == PluginStatus.Failed)
+            .And.Contain(p => p.AssemblyName == Hello && p.Status == PluginStatus.Loaded);
+        host.Catalog.Warnings.Should().ContainSingle().Which.Should().Contain("cannot discover");
     }
 
     [TestMethod]

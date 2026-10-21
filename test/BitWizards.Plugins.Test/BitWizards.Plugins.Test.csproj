@@ -14,6 +14,7 @@
         <!-- the plugins are not referenced: they are built, and copied to samples/<name>, for the tests to put in a plugin folder -->
         <ProjectReference Include="..\BitWizards.Plugins.Test.HelloPlugin\BitWizards.Plugins.Test.HelloPlugin.csproj" ReferenceOutputAssembly="false" OutputItemType="SamplePlugin" />
         <ProjectReference Include="..\BitWizards.Plugins.Test.BrokenPlugin\BitWizards.Plugins.Test.BrokenPlugin.csproj" ReferenceOutputAssembly="false" OutputItemType="SamplePlugin" />
+        <ProjectReference Include="..\BitWizards.Plugins.Test.ForeignPlugin\BitWizards.Plugins.Test.ForeignPlugin.csproj" ReferenceOutputAssembly="false" OutputItemType="SamplePlugin" />
     </ItemGroup>
 
     <Target Name="CopySamplePlugins" AfterTargets="Build">

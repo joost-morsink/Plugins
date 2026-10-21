@@ -41,6 +41,14 @@ public sealed class PluginHostOptions
     /// </summary>
     public IList<AssemblyName> Contracts { get; } = [typeof(IPluginModule).Assembly.GetName()];
 
+    /// <summary>
+    /// Ways to find modules in an assembly other than <see cref="PluginModuleAttribute"/>, for a tool whose plugins declare their modules with an attribute of its own
+    /// (one that does not reference this library): each function turns what an assembly declares into modules, such as by wrapping them. They are consulted
+    /// for every assembly of the plugin folder, in addition to <see cref="PluginModuleAttribute"/>; an assembly that yields a module by either is a plugin.
+    /// A function that throws makes that plugin fail, with a warning, as a module that can not be created does.
+    /// </summary>
+    public IList<Func<Assembly, IEnumerable<IPluginModule>>> ModuleDiscovery { get; } = [];
+
     internal string PluginDirectoryOrDefault => DefaultPluginDirectory is { Length: > 0 } directory ? directory : PluginDirectories.NextToTool(ToolName);
 
     internal string ConfigFileOrDefault => DefaultConfigFile is { Length: > 0 } file ? file : $"{ToolName}.json";

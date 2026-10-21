@@ -74,7 +74,8 @@ public static class PluginLoader
         try
         {
             var attributes = assembly.GetCustomAttributes<PluginModuleAttribute>().ToArray();
-            if (attributes.Length == 0)
+            var discovered = options.ModuleDiscovery.SelectMany(discover => discover(assembly)).ToArray();
+            if (attributes.Length == 0 && discovered.Length == 0)
             {
                 catalog.Plugins.Add(new PluginInfo(file, name.Name, name.Version, [], PluginStatus.NoModule));
                 return [];
@@ -90,7 +91,7 @@ public static class PluginLoader
                 }
             }
 
-            var modules = attributes.Select(a => a.CreateModule()).ToArray();
+            var modules = attributes.Select(a => a.CreateModule()).Concat(discovered).ToArray();
             catalog.Plugins.Add(new PluginInfo(file, name.Name, name.Version, modules.Select(m => m.GetType().FullName ?? m.GetType().Name).ToArray(), PluginStatus.Loaded));
             return modules;
         }
