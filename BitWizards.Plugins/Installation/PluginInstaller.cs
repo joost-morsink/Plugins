@@ -54,6 +54,13 @@ public static class PluginInstaller
         return success;
     }
 
+    /// <summary>
+    /// Whether the lowest version that was found for a range is certain, though the list it comes from may be old: a version pushed since
+    /// can not be lower than the minimum of the range itself. Anything else (the minimum is not there yet, or the range has none) needs a fresh list.
+    /// </summary>
+    internal static bool IsFinal(VersionRange range, NuGetVersion? lowest)
+        => lowest is not null && range.IsMinInclusive && range.MinVersion is { } minimum && lowest.Equals(minimum);
+
     /// <summary>The framework that an assembly targets (<c>net10.0</c>), which is the one the plugins of that tool run on. Falls back to the framework this library runs on.</summary>
     public static NuGetFramework FrameworkOf(Assembly? tool)
     {
@@ -74,7 +81,9 @@ public static class PluginInstaller
         private readonly HashSet<string> _visited = new(StringComparer.OrdinalIgnoreCase);
         // Version lists must be fresh: NuGet's http cache keeps them for 30 minutes, so a package pushed after an
         // earlier install would be missing, and a dependency on the version just released would not resolve.
-        private readonly SourceCacheContext _cache = new() { NoCache = true };
+        private readonly SourceCacheContext _fresh = new() { NoCache = true };
+        // The package of a version never changes, so downloads can come from the cache, and so can a list of versions that already has what is needed.
+        private readonly SourceCacheContext _cache = new();
         private int _packages, _assemblies, _skippedPackages, _skippedAssemblies;
 
         /// <summary>
@@ -84,7 +93,7 @@ public static class PluginInstaller
 
         public async Task<string> FindOutLatest(string packageId)
         {
-            var versions = await feeds.GetAllVersionsAsync(packageId, _cache);
+            var versions = await feeds.GetAllVersionsAsync(packageId, _fresh);
             var candidates = allowPrerelease ? versions : versions.Where(v => !v.IsPrerelease).ToList();
             return candidates.OrderByDescending(v => v).FirstOrDefault()?.ToString()
                    ?? throw new InvalidOperationException(versions.Count > 0
@@ -241,15 +250,24 @@ public static class PluginInstaller
         {
             // Like NuGet restore: the lowest version that satisfies the range, so an open-ended range
             // such as "13.0.4" does not pull in the newest (possibly prerelease) version on the feed.
-            var versions = await feeds.GetAllVersionsAsync(dependency.Id, _cache);
             // A range that names a prerelease bound is the depending package stating that it is stable with
             // that prerelease, so that dependency may resolve to prereleases without --prerelease.
             var range = dependency.VersionRange;
             var prereleaseAllowed = allowPrerelease || range.MinVersion is { IsPrerelease: true } ||
                                     range.MaxVersion is { IsPrerelease: true };
-            var candidates = prereleaseAllowed ? versions : versions.Where(v => !v.IsPrerelease).ToList();
             // Not VersionRange.FindBestMatch: that ignores prereleases unless a range bound is itself a prerelease.
-            var matchingVersion = LowestSatisfying(range, candidates);
+            NuGetVersion? Lowest(IReadOnlyList<NuGetVersion> all)
+                => LowestSatisfying(range, prereleaseAllowed ? all : all.Where(v => !v.IsPrerelease).ToList());
+
+            // The cached list is tried first, and kept when it settles the matter; otherwise the list is fetched fresh.
+            var versions = await feeds.GetAllVersionsAsync(dependency.Id, _cache);
+            var matchingVersion = Lowest(versions);
+            if (!IsFinal(range, matchingVersion))
+            {
+                versions = await feeds.GetAllVersionsAsync(dependency.Id, _fresh);
+                matchingVersion = Lowest(versions);
+            }
+
             if (matchingVersion is not null)
                 return matchingVersion;
 

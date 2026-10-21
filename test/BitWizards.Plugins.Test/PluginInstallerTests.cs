@@ -637,6 +637,17 @@ public class PluginInstallerTests
     }
 
     [TestMethod]
+    [DataRow("[1.2.0, )", "1.2.0", true, "the minimum is there: nothing pushed since can be lower")]
+    [DataRow("1.2.0", "1.2.0", true, "a bare version is a minimum")]
+    [DataRow("[1.2.0, )", "1.3.0", false, "the minimum is not in the list: it may have been pushed since")]
+    [DataRow("(1.2.0, )", "1.3.0", false, "an exclusive minimum is never in the list")]
+    [DataRow("(, 2.0.0)", "1.0.0", false, "without a minimum something lower may have been pushed")]
+    [DataRow("[1.2.0, )", null, false, "nothing was found")]
+    [DataRow("[1.2.0-beta.1, )", "1.2.0-beta.1", true, "a prerelease minimum counts as well")]
+    public void AListOfVersionsThatHasTheMinimumOfTheRangeIsNotFetchedAgain(string range, string? lowest, bool final, string because)
+        => PluginInstaller.IsFinal(VersionRange.Parse(range), lowest is null ? null : NuGetVersion.Parse(lowest)).Should().Be(final, because);
+
+    [TestMethod]
     [DataRow("0.4.0", false)]
     [DataRow("0.5.0-beta.1", true)]
     [DataRow("0.5.0-beta.1+abc123", true)]
