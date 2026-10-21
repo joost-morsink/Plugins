@@ -5,10 +5,11 @@ How a tool and a plugin use it is in [the README of the package](BitWizards.Plug
 
 | | |
 |---|---|
-| `BitWizards.Plugins/` | the package: the module contract, the loader, the starting of a tool with plugins, `plugins list` |
-| `test/` | the tests, with two sample plugins that are built and put in a plugin folder |
+| `BitWizards.Plugins/` | the package: the module contract, the loader, the starting of a tool with plugins, `plugins list`, and `install` from NuGet feeds |
+| `test/` | the tests, with two sample plugins that are built and put in a plugin folder; the tests of the installation come from `giki` |
 
-The package has three dependencies: `System.CommandLine`, `Microsoft.Extensions.DependencyInjection` and `Microsoft.Extensions.Configuration.Json`.
+The package has four dependencies: `System.CommandLine`, `Microsoft.Extensions.DependencyInjection` and `Microsoft.Extensions.Configuration.Json` for the tool,
+and `NuGet.Protocol` (which brings the other NuGet libraries) for installing. `System.Security.Cryptography.Pkcs` is raised above what NuGet asks for, because that has known vulnerabilities.
 
 ## Build
 

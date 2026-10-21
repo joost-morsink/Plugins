@@ -1,8 +1,10 @@
 # BitWizards.Plugins
 
 Plugins for command line tools. A plugin is a folder of assemblies; each declares a *module* that adds configuration, services and commands to the tool.
-It is the plugin system of `giki`, `archvalidator` and `ks` in one place, with three dependencies: `System.CommandLine`, `Microsoft.Extensions.DependencyInjection`
-and `Microsoft.Extensions.Configuration.Json`.
+It is the plugin system of `giki`, `archvalidator` and `ks` in one place: loading the plugins of a folder, and installing them there from NuGet feeds.
+
+Dependencies: `System.CommandLine`, `Microsoft.Extensions.DependencyInjection` and `Microsoft.Extensions.Configuration.Json` for the tool, and
+`NuGet.Protocol` (with the NuGet libraries it needs) for `install`.
 
 ## In a tool
 
@@ -38,6 +40,23 @@ those of the tool first, then those of the modules, which can replace them. A mo
 All assemblies in the plugin folder (and below it) are loaded into the default load context, so a type that the tool and a plugin share is one type.
 For that, **what the tool has wins**: a copy of an assembly of the tool or of the shared framework in the plugin folder is ignored. A plugin brings its own dependencies,
 and only those.
+
+### Installing plugins
+
+`mytool install --package <id> [--version <v>|latest] [--source <feed>...]` installs a NuGet package into the plugin folder, where the next run of the tool loads it.
+Turn it off with `PluginHostOptions.InstallCommand`; `PluginInstaller`, `NuGetFeeds` and `HostAssemblies` (namespace `BitWizards.Plugins.Installation`) are there for a tool that does it itself.
+
+- **Walks the dependency graph.** Each package is downloaded from the first feed that has it, and its managed assemblies for the target framework are copied
+  (`net10.0`, or the nearest older one). A dependency resolves to the lowest version that satisfies its range, as NuGet restore does. Native assets are reported, not installed.
+- **Queries all the sources of NuGet.** Feeds come from the `nuget.config` files (the working directory upwards, then the user and the machine), with their credentials,
+  `<clear />`, disabled sources and *package source mapping*; `--source` (a name from the configuration, a URL or a folder) or `--configfile` replace them. The list of versions is never cached.
+- **Does not install what the tool has.** `HostAssemblies` knows the framework, the assemblies next to the tool and (from its `deps.json`) the packages of the tool; those are skipped,
+  with their dependencies. A plugin assembly with a *higher assembly version* than the tool's copy fails the install, since it would fail at load time: all such conflicts are reported at once.
+  `--include-provided` installs everything.
+- **Prereleases** are only considered with `--prerelease`, or when the tool itself is a prerelease (`PluginHostOptions.ToolAssembly`, the entry assembly by default). A dependency range that names a prerelease allows it.
+- **`--clean`** empties the plugin folder first, and refuses when the folder is a root, or contains the tool, the working directory or the home folder.
+
+A plugin can only use assemblies that are no newer than those of the tool. A tool that runs plugins which need newer framework libraries references those versions itself.
 
 ## In a plugin
 

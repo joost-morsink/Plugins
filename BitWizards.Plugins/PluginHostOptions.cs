@@ -26,6 +26,15 @@ public sealed class PluginHostOptions
     /// <summary>Whether the <c>plugins list</c> command is added to the tool.</summary>
     public bool PluginsCommand { get; init; } = true;
 
+    /// <summary>Whether the <c>install</c> command is added to the tool: it installs a NuGet package, with its dependencies, into the plugin folder.</summary>
+    public bool InstallCommand { get; init; } = true;
+
+    /// <summary>
+    /// The assembly of the tool (default: the entry assembly). Its <c>deps.json</c> tells which packages the tool has, which <c>install</c> does not install again,
+    /// and its version tells whether the tool is a prerelease, which allows prerelease packages.
+    /// </summary>
+    public Assembly? ToolAssembly { get; init; }
+
     /// <summary>
     /// The assemblies that plugins are built against, whose major version they must have: a plugin that references another major version is skipped.
     /// The assembly of this library is there already; a tool adds its own contract (<c>Contracts.Add(typeof(IKsCommand).Assembly.GetName())</c>).

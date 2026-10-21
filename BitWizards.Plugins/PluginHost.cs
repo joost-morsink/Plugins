@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using BitWizards.Plugins.Installation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -63,6 +64,8 @@ public sealed class PluginHost : IDisposable
         services.AddContext<Command>();
         if (options.PluginsCommand)
             services.AddSingleton<IRootCommandConfigurator, PluginsCommandConfigurator>();
+        if (options.InstallCommand)
+            services.AddSingleton<IRootCommandConfigurator, PluginInstallCommandConfigurator>();
         configureServices?.Invoke(services, configuration);
         foreach (var module in modules)
             Guard(module, "register services", catalog, () => module.RegisterServices(configuration, services));

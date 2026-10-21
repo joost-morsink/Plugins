@@ -25,6 +25,14 @@
         <PackageReference Include="System.CommandLine" Version="2.0.11" />
     </ItemGroup>
 
+    <!-- installing plugins from NuGet feeds: the client brings the packaging, configuration (nuget.config), frameworks and versioning libraries -->
+    <ItemGroup>
+        <PackageReference Include="NuGet.Protocol" Version="7.9.0" />
+        <!-- NuGet.Packaging 7.9.0 asks for 8.0.1, which has known vulnerabilities; a newer one is compatible. Note for hosts: plugins can not use a newer
+             assembly than the host's, so a host that wants to run plugins that need newer framework libraries must reference those itself. -->
+        <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+    </ItemGroup>
+
     <ItemGroup>
         <InternalsVisibleTo Include="BitWizards.Plugins.Test" />
     </ItemGroup>
