@@ -13,6 +13,17 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitWizards.Plugins.Test.Hel
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitWizards.Plugins.Test.BrokenPlugin", "test\BitWizards.Plugins.Test.BrokenPlugin\BitWizards.Plugins.Test.BrokenPlugin.csproj", "{A7862C27-8C09-462E-BAE4-255DA597B5F3}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{5E1B7C84-3A62-4D0F-9B21-7C4A6D8E2F13}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+		.github\workflows\ci.yml = .github\workflows\ci.yml
+		.github\workflows\publish.yml = .github\workflows\publish.yml
+		scripts\Build-Prerelease.ps1 = scripts\Build-Prerelease.ps1
+		README.md = README.md
+		LICENSE = LICENSE
+		.gitignore = .gitignore
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
