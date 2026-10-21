@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>BitWizards.Plugins</RootNamespace>
+        <IsPackable>true</IsPackable>
+        <PackageId>BitWizards.Plugins</PackageId>
+        <Description>Plugins for command line tools: modules that are found in a folder and add services, configuration and commands.</Description>
+        <PackageTags>plugin;plugins;command-line;dependency-injection;system-commandline</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/joost-morsink/Plugin.git</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/joost-morsink/Plugin</PackageProjectUrl>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
+
+    <!-- the dependencies of every tool with plugins: the container, the JSON configuration (which brings its abstractions), and the command line -->
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.12" />
+        <PackageReference Include="System.CommandLine" Version="2.0.11" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="BitWizards.Plugins.Test" />
+    </ItemGroup>
+
+</Project>

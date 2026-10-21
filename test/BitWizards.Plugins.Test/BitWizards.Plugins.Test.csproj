@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <PackageReference Include="AwesomeAssertions" Version="9.4.0" />
+        <PackageReference Include="MSTest" Version="4.2.3" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\BitWizards.Plugins\BitWizards.Plugins.csproj" />
+        <!-- the plugins are not referenced: they are built, and copied to samples/<name>, for the tests to put in a plugin folder -->
+        <ProjectReference Include="..\BitWizards.Plugins.Test.HelloPlugin\BitWizards.Plugins.Test.HelloPlugin.csproj" ReferenceOutputAssembly="false" OutputItemType="SamplePlugin" />
+        <ProjectReference Include="..\BitWizards.Plugins.Test.BrokenPlugin\BitWizards.Plugins.Test.BrokenPlugin.csproj" ReferenceOutputAssembly="false" OutputItemType="SamplePlugin" />
+    </ItemGroup>
+
+    <Target Name="CopySamplePlugins" AfterTargets="Build">
+        <Copy SourceFiles="@(SamplePlugin)" DestinationFolder="$(OutDir)samples\%(Filename)" />
+    </Target>
+
+</Project>

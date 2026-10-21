@@ -1,0 +1,12 @@
+bin/
+obj/
+/dist/
+/TestResults/
+*.received.txt
+*.user
+*.DotSettings.user
+.idea/
+.vs/
+.vscode/
+.DS_Store
+.claude/

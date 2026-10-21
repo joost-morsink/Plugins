@@ -1,0 +1,27 @@
+<Project>
+
+    <!-- one version for all assemblies and packages of the solution -->
+    <PropertyGroup>
+        <VersionPrefix>0.1.0</VersionPrefix>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Authors>Joost Morsink</Authors>
+        <Company>Bit Wizards B.V.</Company>
+        <Copyright>Copyright (c) Bit Wizards B.V.</Copyright>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <!-- the debug symbols are in the assembly: GitHub Packages has no symbol packages -->
+    <PropertyGroup>
+        <DebugType>embedded</DebugType>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    </PropertyGroup>
+
+</Project>

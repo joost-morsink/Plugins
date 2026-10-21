@@ -1,0 +1,75 @@
+name: Publish
+
+# the NuGet packages, to GitHub Packages of the owner of this repository
+#  - a tag v<version> (the VersionPrefix of Directory.Build.props, such as v0.1.0) publishes that version and keeps the packages in a release;
+#    a tag with a suffix (v0.2.0-rc.1) publishes a prerelease: the prefix must be the one of Directory.Build.props
+#  - run by hand on main (Actions > Publish > Run workflow) it publishes a prerelease: <version>-preview.<run number>
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: The version to publish
+        id: version
+        run: |
+          prefix=$(sed -n 's:.*<VersionPrefix>\(.*\)</VersionPrefix>.*:\1:p' Directory.Build.props)
+          if [ -z "$prefix" ]; then
+            echo "::error::no VersionPrefix in Directory.Build.props"
+            exit 1
+          fi
+          suffix=""
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            tagged="${GITHUB_REF_NAME#v}"
+            if [ "${tagged%%-*}" != "$prefix" ] || [ "$GITHUB_REF_NAME" = "$tagged" ]; then
+              echo "::error::the tag is $GITHUB_REF_NAME, but Directory.Build.props says $prefix (expected v$prefix, or v$prefix-<suffix>)"
+              exit 1
+            fi
+            if [ "$tagged" != "$prefix" ]; then
+              suffix="${tagged#*-}"
+            fi
+          elif [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            suffix="preview.$GITHUB_RUN_NUMBER"
+          else
+            echo "::error::a prerelease is published from main, not from $GITHUB_REF"
+            exit 1
+          fi
+          echo "suffix=$suffix" >> "$GITHUB_OUTPUT"
+          echo "version=$prefix${suffix:+-$suffix}" >> "$GITHUB_OUTPUT"
+
+      - run: dotnet test BitWizards.Plugins.sln --configuration Release
+
+      - name: Pack
+        run: >
+          dotnet pack BitWizards.Plugins.sln --configuration Release --output dist
+          ${{ steps.version.outputs.suffix != '' && format('--version-suffix {0}', steps.version.outputs.suffix) || '' }}
+
+      - name: Publish ${{ steps.version.outputs.version }} to GitHub Packages
+        run: >
+          dotnet nuget push "dist/*.nupkg"
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          --api-key "${{ secrets.GITHUB_TOKEN }}"
+          --skip-duplicate
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: dist/*.nupkg
+
+      - name: Keep the packages in a release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.nupkg
+          prerelease: ${{ steps.version.outputs.suffix != '' }}
