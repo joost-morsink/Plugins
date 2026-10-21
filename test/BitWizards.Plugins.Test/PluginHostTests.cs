@@ -201,8 +201,10 @@ public class PluginHostTests
         => assembly.GetCustomAttributes().Where(a => a.GetType().Name == "ForeignModuleAttribute")
             .Select(a => new ForeignAdapter(Activator.CreateInstance((Type)a.GetType().GetProperty("ModuleType")!.GetValue(a)!)!));
 
-    private sealed class ForeignAdapter(object module) : IPluginModule
+    private sealed class ForeignAdapter(object module) : IPluginModuleWrapper
     {
+        public object Module => module;
+
         public void Configure(IConfigurationBuilder configurationBuilder)
         {
         }
@@ -222,6 +224,7 @@ public class PluginHostTests
 
         host.Catalog.Warnings.Should().BeEmpty();
         host.Catalog.Plugins.Should().HaveCount(2).And.OnlyContain(p => p.Status == PluginStatus.Loaded && p.Modules.Length == 1);
+        host.Catalog.Plugins.Single(p => p.AssemblyName == Foreign).Modules.Should().ContainSingle().Which.Should().Be(Foreign + ".ForeignModule", "a wrapper is named after the module it wraps");
         var marker = AssemblyLoadContext.Default.Assemblies.Single(a => a.GetName().Name == Foreign).GetType(Foreign + ".ForeignMarker")!;
         marker.GetProperty("Value")!.GetValue(host.Services.GetRequiredService(marker)).Should().Be("found");
     }

@@ -29,6 +29,16 @@ public abstract class PluginModule : IPluginModule
 }
 
 /// <summary>
+/// A module that stands for a module of another contract, as the ones that <see cref="PluginHostOptions.ModuleDiscovery"/> wraps.
+/// <c>plugins list</c> and the warnings name the module that is wrapped, not the wrapper that all of them share.
+/// </summary>
+public interface IPluginModuleWrapper : IPluginModule
+{
+    /// <summary>The module that is wrapped.</summary>
+    object Module { get; }
+}
+
+/// <summary>
 /// Discovery marker, applied to the assembly of a plugin: <c>[assembly: PluginModule(typeof(MyModule))]</c>.
 /// The module needs a public constructor without parameters.
 /// </summary>

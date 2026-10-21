@@ -92,7 +92,7 @@ public static class PluginLoader
             }
 
             var modules = attributes.Select(a => a.CreateModule()).Concat(discovered).ToArray();
-            catalog.Plugins.Add(new PluginInfo(file, name.Name, name.Version, modules.Select(m => m.GetType().FullName ?? m.GetType().Name).ToArray(), PluginStatus.Loaded));
+            catalog.Plugins.Add(new PluginInfo(file, name.Name, name.Version, modules.Select(NameOf).ToArray(), PluginStatus.Loaded));
             return modules;
         }
         catch (Exception ex)
@@ -102,6 +102,13 @@ public static class PluginLoader
             catalog.Plugins.Add(new PluginInfo(file, name.Name, name.Version, [], PluginStatus.Failed, ex.GetType().Name));
             return [];
         }
+    }
+
+    /// <summary>The name of the type of a module, which for a wrapper is that of the module it wraps.</summary>
+    internal static string NameOf(IPluginModule module)
+    {
+        var type = (module is IPluginModuleWrapper wrapper ? wrapper.Module : module).GetType();
+        return type.FullName ?? type.Name;
     }
 
     private static Assembly? LoadedAs(string name)

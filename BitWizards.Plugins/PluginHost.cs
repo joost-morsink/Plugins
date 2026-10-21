@@ -114,7 +114,7 @@ public sealed class PluginHost : IDisposable
         }
         catch (Exception ex)
         {
-            catalog.Warnings.Add($"Module '{module.GetType().FullName}' failed to {what}: {ex.Message}");
+            catalog.Warnings.Add($"Module '{PluginLoader.NameOf(module)}' failed to {what}: {ex.Message}");
             return false;
         }
     }
