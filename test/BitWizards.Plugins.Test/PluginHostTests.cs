@@ -33,7 +33,7 @@ public class PluginHostTests
     private static async Task<(int Code, string Output, PluginHost Host)> Run(string folder, PluginHostOptions options, params string[] args)
     {
         string[] line = ["--plugins", folder, .. args];
-        var host = PluginHost.Build(line, options, (services, _) => services.AddSingleton<IRootCommandConfigurator, ToolCommands>());
+        var host = PluginHost.Build(line, options, (services, _) => services.AddTransient<IRootCommandConfigurator, ToolCommands>());
         var root = new RootCommand("tool");
         host.ConfigureRoot(root);
         var output = new StringWriter();
@@ -208,7 +208,7 @@ public class PluginHostTests
         var holder = new ContextHolder<string>();
         holder.HasContext.Should().BeFalse();
 
-        var seen = await holder.RunWithContext("here", async () =>
+        var seen = await holder.RunWithContextAsync("here", async () =>
         {
             await Task.Delay(10);
             return holder.Context;
@@ -217,6 +217,26 @@ public class PluginHostTests
         seen.Should().Be("here");
         holder.HasContext.Should().BeFalse();
         holder.Context.Should().BeNull();
+    }
+
+    [TestMethod]
+    public async Task TheDeveloperSaysWhereTheContextEnds()
+    {
+        var holder = new ContextHolder<string>();
+
+        // a context that is run with ends where the code that is run ends: for an async lambda that is at its first await, unless the async form is used
+        var afterTheAwait = await holder.RunWithContext("sync", async () =>
+        {
+            await Task.Yield();
+            return holder.Context;
+        });
+        var insideAsync = await holder.RunWithContextAsync("async", async () =>
+        {
+            await Task.Yield();
+            return holder.Context;
+        });
+
+        (afterTheAwait, insideAsync).Should().Be((null, "async"));
     }
 
     [TestMethod]
@@ -250,24 +270,43 @@ public class PluginHostTests
     {
         var services = new ServiceCollection().AddContext("default").AddContext<int>();
         await using var provider = services.BuildServiceProvider();
-        var text = provider.GetRequiredService<IContext<string>>();
+        using var scope = provider.CreateScope();
+        var text = scope.ServiceProvider.GetRequiredService<IContext<string>>();
 
         (text.HasContext, text.Context).Should().Be((true, "default"));
         text.RunWithContext("run", () => text.Context).Should().Be("run");
         text.Context.Should().Be("default", "back to the default afterwards");
-        provider.GetRequiredService<IContext<string>>().Should().BeSameAs(text);
-        provider.GetRequiredService<IContext<int>>().HasContext.Should().BeTrue("a value type always has a value, as in giki; it is 0 here");
+        scope.ServiceProvider.GetRequiredService<IContext<string>>().Should().BeSameAs(text);
+        scope.ServiceProvider.GetRequiredService<IContext<int>>().HasContext.Should().BeTrue("a value type always has a value, as in giki; it is 0 here");
     }
 
     [TestMethod]
-    public async Task TwoTasksDoNotSeeEachOthersContext()
+    public async Task EachScopeHasItsOwnContext()
     {
-        var holder = new ContextHolder<string>();
-        var both = await Task.WhenAll(
-            holder.RunWithContextAsync("one", async () => { await Task.Delay(20); return holder.Context; }),
-            holder.RunWithContextAsync("two", async () => { await Task.Delay(5); return holder.Context; }));
+        await using var provider = new ServiceCollection().AddContext<string>().BuildServiceProvider();
+        using var first = provider.CreateScope();
+        using var second = provider.CreateScope();
+        var (one, two) = (first.ServiceProvider.GetRequiredService<IContext<string>>(), second.ServiceProvider.GetRequiredService<IContext<string>>());
 
-        both.Should().Equal("one", "two");
+        var inSecond = await one.RunWithContextAsync("one", async () =>
+        {
+            await Task.Yield();
+            return (one.Context, two.Context);
+        });
+
+        inSecond.Should().Be(("one", null), "the context of the other scope is not touched");
+        one.Should().NotBeSameAs(two);
+    }
+
+    [TestMethod]
+    public async Task ACommandOfThePluginSeesTheContextOfTheScopeOfTheRun()
+    {
+        // HelloCommands takes IContext<Command> and is registered transient: it gets the one of the scope that the host resolves it from
+        var (_, output, host) = await Run(Folder(Hello), Options(), "hello");
+        using var _ = host;
+
+        output.Should().Be("hello from the plugin (hello)\n");
+        host.Scope.ServiceProvider.GetRequiredService<IContext<System.CommandLine.Command>>().HasContext.Should().BeFalse("afterwards it is gone from the scope");
     }
 
     private sealed class GreetingModule : PluginModule

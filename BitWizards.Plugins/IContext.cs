@@ -8,9 +8,10 @@ public interface IContext
 }
 
 /// <summary>
-/// Surfaces ambient data of the invocation (such as the current <c>ParseResult</c> or <c>Command</c>) to services
-/// that the container constructed. The data is there for the code that runs in <c>RunWithContext</c>, also across awaits,
-/// and only for that code (another thread, or another task, does not see it).
+/// Surfaces data of the invocation (such as the current <c>ParseResult</c> or <c>Command</c>) to services that the container constructed.
+/// The context is that of the instance, so of the scope it is resolved from: it is set for the code that runs in <c>RunWithContext</c> (which says where it
+/// starts and ends, and puts back what was there), and is the same for everything that is resolved from that scope. Code that runs at the same time in one scope
+/// shares it, so give each its own scope.
 /// </summary>
 public interface IContext<T>
 {
@@ -30,24 +31,20 @@ public interface IContext<T>
 
 public sealed class ContextHolder<T>(T? defaultValue = default) : IContext<T>
 {
-    private sealed record Current(T? Value);
-
-    private readonly AsyncLocal<Current?> current = new();
-
-    public T? Context => current.Value is { } running ? running.Value : defaultValue;
+    public T? Context { get; private set; } = defaultValue;
     public bool HasContext => Context is not null;
 
     public async Task<R> RunWithContextAsync<R>(T context, Func<Task<R>> func)
     {
-        var before = current.Value;
-        current.Value = new Current(context);
+        var before = Context;
+        Context = context;
         try
         {
             return await func();
         }
         finally
         {
-            current.Value = before;
+            Context = before;
         }
     }
 
@@ -60,15 +57,15 @@ public sealed class ContextHolder<T>(T? defaultValue = default) : IContext<T>
 
     public R RunWithContext<R>(T context, Func<R> func)
     {
-        var before = current.Value;
-        current.Value = new Current(context);
+        var before = Context;
+        Context = context;
         try
         {
             return func();
         }
         finally
         {
-            current.Value = before;
+            Context = before;
         }
     }
 
@@ -82,11 +79,11 @@ public sealed class ContextHolder<T>(T? defaultValue = default) : IContext<T>
 
 public static class ContextServiceCollectionExtensions
 {
-    /// <summary>Makes an <see cref="IContext{T}"/> available, without a context until one is run with.</summary>
+    /// <summary>Makes an <see cref="IContext{T}"/> available to each scope, without a context until one is run with.</summary>
     public static IServiceCollection AddContext<T>(this IServiceCollection services)
-        => services.AddSingleton<IContext<T>>(_ => new ContextHolder<T>());
+        => services.AddScoped<IContext<T>>(_ => new ContextHolder<T>());
 
-    /// <summary>Makes an <see cref="IContext{T}"/> available, with a context for the code that does not run with another.</summary>
+    /// <summary>Makes an <see cref="IContext{T}"/> available to each scope, with a context for the code that does not run with another.</summary>
     public static IServiceCollection AddContext<T>(this IServiceCollection services, T defaultValue)
-        => services.AddSingleton<IContext<T>>(_ => new ContextHolder<T>(defaultValue));
+        => services.AddScoped<IContext<T>>(_ => new ContextHolder<T>(defaultValue));
 }

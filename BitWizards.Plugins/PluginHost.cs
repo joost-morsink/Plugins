@@ -19,12 +19,20 @@ public sealed class PluginHost : IDisposable
     private PluginHost(ServiceProvider services, PluginCatalog catalog, IConfigurationRoot configuration, PluginOptions options)
     {
         Services = services;
+        Scope = services.CreateScope();
         Catalog = catalog;
         Configuration = configuration;
         Options = options;
     }
 
+    /// <summary>The container, for the services that live as long as the tool.</summary>
     public ServiceProvider Services { get; }
+
+    /// <summary>
+    /// The scope of this run of the tool: the commands, and what they use, are resolved from it, and the <see cref="IContext{T}"/>s are its own.
+    /// A command that needs a context resolves it from here, so register a <see cref="IRootCommandConfigurator"/> that does as transient or scoped.
+    /// </summary>
+    public IServiceScope Scope { get; }
 
     /// <summary>What was found in the folder of the plugins. A tool writes its <see cref="PluginCatalog.Warnings"/> to its error output.</summary>
     public PluginCatalog Catalog { get; }
@@ -63,9 +71,9 @@ public sealed class PluginHost : IDisposable
         services.AddContext<ParseResult>();
         services.AddContext<Command>();
         if (options.PluginsCommand)
-            services.AddSingleton<IRootCommandConfigurator, PluginsCommandConfigurator>();
+            services.AddTransient<IRootCommandConfigurator, PluginsCommandConfigurator>();
         if (options.InstallCommand)
-            services.AddSingleton<IRootCommandConfigurator, PluginInstallCommandConfigurator>();
+            services.AddTransient<IRootCommandConfigurator, PluginInstallCommandConfigurator>();
         configureServices?.Invoke(services, configuration);
         foreach (var module in modules)
             Guard(module, "register services", catalog, () => module.RegisterServices(configuration, services));
@@ -77,17 +85,24 @@ public sealed class PluginHost : IDisposable
     public void ConfigureRoot(RootCommand root)
     {
         Options.AddTo(root);
-        foreach (var configurator in Services.GetServices<IRootCommandConfigurator>())
+        foreach (var configurator in Scope.ServiceProvider.GetServices<IRootCommandConfigurator>())
             configurator.ConfigureRootCommand(root);
     }
 
-    /// <summary>Invokes the parsed command line, with its <c>ParseResult</c> and <c>Command</c> available as <see cref="IContext{T}"/>.</summary>
+    /// <summary>
+    /// Invokes the parsed command line, with its <c>ParseResult</c> and <c>Command</c> available as <see cref="IContext{T}"/>
+    /// to what is resolved from the <see cref="Scope"/>, for as long as the command runs.
+    /// </summary>
     public Task<int> InvokeAsync(ParseResult parse, InvocationConfiguration? configuration = null, CancellationToken cancellationToken = default)
-        => Services.GetRequiredService<IContext<ParseResult>>().RunWithContextAsync(parse, () =>
-            Services.GetRequiredService<IContext<Command>>().RunWithContextAsync(parse.CommandResult.Command, () =>
+        => Scope.ServiceProvider.GetRequiredService<IContext<ParseResult>>().RunWithContextAsync(parse, () =>
+            Scope.ServiceProvider.GetRequiredService<IContext<Command>>().RunWithContextAsync(parse.CommandResult.Command, () =>
                 parse.InvokeAsync(configuration, cancellationToken)));
 
-    public void Dispose() => Services.Dispose();
+    public void Dispose()
+    {
+        Scope.Dispose();
+        Services.Dispose();
+    }
 
     /// <summary>A module that fails (on a dependency it misses, say) is a warning and is left out: the tool still runs.</summary>
     private static bool Guard(IPluginModule module, string what, PluginCatalog catalog, Action action)

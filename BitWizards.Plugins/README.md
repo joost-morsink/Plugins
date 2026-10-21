@@ -12,7 +12,7 @@ Dependencies: `System.CommandLine`, `Microsoft.Extensions.DependencyInjection` a
 var options = new PluginHostOptions("mytool");
 using var host = PluginHost.Build(args, options, (services, configuration) =>
 {
-    services.AddSingleton<IRootCommandConfigurator, MyCommands>();   // the commands of the tool itself
+    services.AddTransient<IRootCommandConfigurator, MyCommands>();   // the commands of the tool itself
 });
 
 foreach (var warning in host.Catalog.Warnings)
@@ -38,7 +38,8 @@ before it, `mytool --set a=1 run` takes `run` for a value.
 |---|---|
 | Plugin folder | `--plugins <folder>`, or `PluginHostOptions.DefaultPluginDirectory`: `mytool-plugins` next to the tool (`PluginDirectories.NextToTool`, which an update of the tool resets) or in the data folder of the user (`PluginDirectories.PerUser`) |
 | Contract | the assemblies that plugins are built against (`PluginHostOptions.Contracts`, this library is there already): a plugin that references another major version is skipped with a warning |
-| Context | `IContext<ParseResult>` and `IContext<Command>` give the services of the container the command line that is being invoked. `IContext<T>` is the one of `giki` (`RunWithContext`, `RunWithContextAsync`, `IContext<T>.Create(...)`, `services.AddContext<T>(defaultValue)`), as a singleton that holds the context per async flow, so no scope is needed |
+| Scope | `host.Scope` is the scope of the run: the commands, and what they use, are resolved from it. Register a `IRootCommandConfigurator` (transient) so that it is |
+| Context | `IContext<ParseResult>` and `IContext<Command>` give what is resolved from `host.Scope` the command line that is being invoked. `IContext<T>` is the one of `giki` (`RunWithContext`, `RunWithContextAsync`, `IContext<T>.Create(...)`, `services.AddContext<T>(defaultValue)`): scoped, set explicitly for the code that runs with it, and put back afterwards. Use the async form for async code: a sync run ends at the first `await`. Code that runs at the same time in one scope shares the context, so give it a scope of its own |
 
 ### Loading
 
@@ -73,7 +74,7 @@ Reference `BitWizards.Plugins` (and whatever contract the tool offers), and decl
 public class MyModule : PluginModule
 {
     public override void RegisterServices(IConfiguration configuration, IServiceCollection services)
-        => services.AddSingleton<IRootCommandConfigurator, HelloCommands>();
+        => services.AddTransient<IRootCommandConfigurator, HelloCommands>();
 }
 ```
 

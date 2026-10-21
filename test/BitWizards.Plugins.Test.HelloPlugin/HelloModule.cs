@@ -15,7 +15,7 @@ public sealed class HelloModule : PluginModule
     public override void RegisterServices(IConfiguration configuration, IServiceCollection services)
     {
         services.AddSingleton(new Greeter(configuration["Hello:Greeting"] ?? "hello", configuration["Hello:From"] ?? "?"));
-        services.AddSingleton<IRootCommandConfigurator, HelloCommands>();
+        services.AddTransient<IRootCommandConfigurator, HelloCommands>();
     }
 }
 
