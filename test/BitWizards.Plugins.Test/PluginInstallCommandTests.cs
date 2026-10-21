@@ -72,6 +72,18 @@ public class PluginInstallCommandTests
     }
 
     [TestMethod]
+    public async Task RefreshInstallsAsWellAndIsInTheHelp()
+    {
+        var plugins = Folder("plugins");
+        var feed = FeedWithHelloPlugin();
+
+        var (code, _, error) = await Tool(plugins, Options(), "install", "--package", "Hello.Plugin", "--source", feed, "--refresh");
+
+        (code, error).Should().Match<(int Code, string Error)>(r => r.Code == 0 && r.Error.Contains("Package installed successfully."));
+        (await Tool(plugins, Options(), "install", "--help")).Output.Should().Contain("--refresh").And.Contain("30 minutes");
+    }
+
+    [TestMethod]
     public async Task ThePackageCanBeGivenAsPkgAndSeveralSourcesCanFollowOneOption()
     {
         var plugins = Folder("plugins");

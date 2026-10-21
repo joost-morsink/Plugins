@@ -30,10 +30,15 @@ internal sealed class PluginInstallCommandConfigurator(PluginCatalog catalog, Pl
             Description = "Also consider prerelease package versions (always on when the tool itself is a prerelease)",
             Arity = ArgumentArity.Zero
         };
+        var refresh = new Option<bool>("--refresh")
+        {
+            Description = "Fetch the lists of versions fresh, not from NuGet's cache (up to 30 minutes old): finds a version that was just pushed",
+            Arity = ArgumentArity.Zero
+        };
 
         var install = new Command("install", "Install a plugin package, with its dependencies, into the plugin folder")
         {
-            Options = { package, version, source, configFile, clean, includeProvided, prerelease }
+            Options = { package, version, source, configFile, clean, includeProvided, prerelease, refresh }
         };
         install.SetAction(async (parse, _) =>
         {
@@ -55,7 +60,7 @@ internal sealed class PluginInstallCommandConfigurator(PluginCatalog catalog, Pl
                     await error.WriteLineAsync("The tool is a prerelease; prerelease packages are allowed.");
 
                 var success = await PluginInstaller.InstallAsync(id, wanted, catalog.Directory, feeds, host, error,
-                    PluginInstaller.FrameworkOf(tool), toolIsPrerelease || parse.GetValue(prerelease));
+                    PluginInstaller.FrameworkOf(tool), toolIsPrerelease || parse.GetValue(prerelease), parse.GetValue(refresh));
                 await error.WriteLineAsync(success ? "Package installed successfully." : $"Package {id} {wanted} installation failed.");
                 return success ? 0 : 1;
             }
