@@ -10,8 +10,8 @@
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <RepositoryType>git</RepositoryType>
-        <RepositoryUrl>https://github.com/joost-morsink/Plugin.git</RepositoryUrl>
-        <PackageProjectUrl>https://github.com/joost-morsink/Plugin</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/joost-morsink/Plugins.git</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/joost-morsink/Plugins</PackageProjectUrl>
     </PropertyGroup>
 
     <ItemGroup>
