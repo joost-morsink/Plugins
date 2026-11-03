@@ -121,7 +121,7 @@ public class PluginInstallCommandTests
     {
         var (code, _, error) = await Tool(Folder("plugins"), Options(), "install", "--package", "Nothing.Here", "--source", FeedWithHelloPlugin());
 
-        code.Should().Be(1);
+        code.Should().Be(2);
         error.Should().Contain("Package Nothing.Here latest installation failed").And.Contain("Could not find any versions");
     }
 
@@ -133,7 +133,7 @@ public class PluginInstallCommandTests
 
         var (code, _, error) = await Tool(Folder("plugins"), Options(), "install", "--package", "Hello.Plugin", "--configfile", Path.Combine(folder, "nuget.config"));
 
-        code.Should().Be(1);
+        code.Should().Be(2);
         error.Should().Contain("No enabled NuGet package sources");
     }
 

@@ -2,7 +2,7 @@
 
     <!-- one version for all assemblies and packages of the solution -->
     <PropertyGroup>
-        <VersionPrefix>0.1.0</VersionPrefix>
+        <VersionPrefix>0.2.0</VersionPrefix>
     </PropertyGroup>
 
     <PropertyGroup>

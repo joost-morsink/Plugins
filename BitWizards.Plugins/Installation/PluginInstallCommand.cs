@@ -62,12 +62,13 @@ internal sealed class PluginInstallCommandConfigurator(PluginCatalog catalog, Pl
                 var success = await PluginInstaller.InstallAsync(id, wanted, catalog.Directory, feeds, host, error,
                     PluginInstaller.FrameworkOf(tool), toolIsPrerelease || parse.GetValue(prerelease), parse.GetValue(refresh));
                 await error.WriteLineAsync(success ? "Package installed successfully." : $"Package {id} {wanted} installation failed.");
-                return success ? 0 : 1;
+                // 2 is "the command could not be carried out" in the exit code scheme of the tools (0 done, 1 crash, 2 not carried out, 3 content errors)
+                return success ? 0 : 2;
             }
             catch (Exception e) when (e is InvalidOperationException or FileNotFoundException)
             {
                 await error.WriteLineAsync($"Package {id} {wanted} installation failed: {e.Message}");
-                return 1;
+                return 2;
             }
         });
         rootCommand.Subcommands.Add(install);
